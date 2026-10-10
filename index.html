@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Salesforce CRM — Central de tarefas</title>
+  <style>
+    :root {
+      --blue: #0176d3;
+      --blue-dark: #032d60;
+      --navy: #032d60;
+      --text: #181818;
+      --muted: #5f6a7d;
+      --line: #e5e8ec;
+      --page: #f3f3f3;
+      --white: #fff;
+      --green: #2e844a;
+      --orange: #dd7a01;
+      --red: #ba0517;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--text);
+      font: 14px Arial, Helvetica, sans-serif;
+    }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+
+    .topbar {
+      height: 58px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 0 24px;
+      background: var(--navy);
+      color: white;
+    }
+    .brand { font-weight: 700; font-size: 18px; white-space: nowrap; }
+    .brand-mark {
+      display: inline-grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      margin-right: 8px;
+      border-radius: 50%;
+      background: white;
+      color: var(--blue);
+      font-weight: 800;
+    }
+    .top-search {
+      width: min(420px, 45vw);
+      margin: 0 auto;
+      padding: 9px 14px;
+      border: 0;
+      border-radius: 5px;
+      outline: none;
+    }
+    .profile { margin-left: auto; white-space: nowrap; }
+
+    .nav {
+      height: 43px;
+      display: flex;
+      align-items: center;
+      gap: 26px;
+      padding: 0 28px;
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+      color: #3e4a5c;
+      font-size: 13px;
+    }
+    .nav .selected { color: var(--blue); font-weight: 700; border-bottom: 3px solid var(--blue); height: 100%; display: flex; align-items: center; }
+
+    main { max-width: 1440px; margin: 0 auto; padding: 24px; }
+    .breadcrumbs { color: var(--muted); font-size: 12px; margin-bottom: 14px; }
+    .heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+    h1 { margin: 0 0 6px; font-size: 25px; font-weight: 600; }
+    .subtitle { color: var(--muted); }
+    .button-primary, .button-light {
+      border: 1px solid var(--blue);
+      border-radius: 4px;
+      padding: 9px 15px;
+      font-weight: 700;
+    }
+    .button-primary { background: var(--blue); color: white; }
+    .button-primary:hover { background: #005fb2; }
+    .button-light { background: white; color: var(--blue); }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .stat, .panel {
+      background: var(--white);
+      border: 1px solid #e4e7eb;
+      border-radius: 6px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    }
+    .stat { padding: 16px 18px; }
+    .stat-label { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+    .stat-value { font-size: 25px; font-weight: 700; }
+    .stat-note { color: var(--muted); font-size: 11px; margin-top: 5px; }
+
+    .panel { overflow: hidden; }
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+    .panel-header h2 { margin: 0; font-size: 17px; }
+    .filters { display: flex; gap: 9px; flex-wrap: wrap; }
+    .filters input, .filters select {
+      min-height: 36px;
+      padding: 7px 10px;
+      border: 1px solid #c9cdd3;
+      border-radius: 4px;
+      background: white;
+      color: var(--text);
+    }
+    .filters input { width: 230px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; white-space: nowrap; }
+    th, td { text-align: left; padding: 13px 14px; border-bottom: 1px solid #eceef0; }
+    th { color: #444; background: #fafaf9; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
+    td { font-size: 13px; }
+    tbody tr:hover { background: #f7fbff; }
+    .task-title { color: var(--blue); font-weight: 700; cursor: pointer; white-space: normal; min-width: 230px; }
+    .task-title:hover { text-decoration: underline; }
+    .badge { display: inline-block; padding: 4px 9px; border-radius: 13px; background: #eef4ff; color: #174a7c; font-size: 11px; }
+    .badge-progress { background: #e5f3ff; color: #014486; }
+    .badge-not-started { background: #fff1e5; color: #8e4b00; }
+    .badge-done { background: #e5f5e8; color: #1b5e20; }
+    .priority-high { color: var(--red); font-weight: 700; }
+    .priority-normal { color: #444; }
+    .priority-low { color: var(--muted); }
+    .table-footer { padding: 12px 16px; color: var(--muted); font-size: 12px; }
+
+    .lower-grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 16px; margin-top: 18px; }
+    .note-list { padding: 4px 18px 12px; }
+    .note { padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .note:last-child { border-bottom: 0; }
+    .note-contact { color: var(--blue); font-weight: 700; margin-bottom: 5px; }
+    .assistant-box { padding: 18px; }
+    .assistant-box p { color: var(--muted); line-height: 1.5; margin: 0 0 12px; }
+    .assistant-form { display: flex; gap: 8px; }
+    .assistant-form input { min-width: 0; flex: 1; padding: 10px; border: 1px solid #c9cdd3; border-radius: 4px; }
+    .assistant-answer { white-space: pre-line; margin-top: 14px; line-height: 1.5; }
+    .empty { padding: 28px; text-align: center; color: var(--muted); }
+
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      z-index: 5;
+      inset: 0;
+      padding: 20px;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,.45);
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal { width: min(600px, 100%); max-height: 90vh; overflow-y: auto; background: white; border-radius: 7px; box-shadow: 0 8px 30px rgba(0,0,0,.25); }
+    .modal-head { display: flex; justify-content: space-between; align-items: center; padding: 17px 20px; border-bottom: 1px solid var(--line); }
+    .modal-head h2 { margin: 0; font-size: 18px; }
+    .close { border: 0; background: transparent; font-size: 24px; color: var(--muted); }
+    .modal-body { padding: 20px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .form-field { display: flex; flex-direction: column; gap: 6px; }
+    .form-field.full { grid-column: 1 / -1; }
+    .form-field label { font-size: 12px; font-weight: 700; color: #444; }
+    .form-field input, .form-field select, .form-field textarea { width: 100%; padding: 9px; border: 1px solid #c9cdd3; border-radius: 4px; }
+    .form-field textarea { min-height: 74px; resize: vertical; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 9px; padding: 14px 20px; border-top: 1px solid var(--line); }
+
+    @media (max-width: 800px) {
+      main { padding: 18px 12px; }
+      .topbar { padding: 0 12px; gap: 8px; }
+      .profile { display: none; }
+      .nav { padding: 0 14px; gap: 18px; overflow-x: auto; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .lower-grid { grid-template-columns: 1fr; }
+      .panel-header { align-items: flex-start; flex-direction: column; }
+      .filters { width: 100%; }
+      .filters input { flex: 1; width: 120px; }
+    }
+    @media (max-width: 480px) {
+      .brand { font-size: 0; }
+      .brand-mark { font-size: 16px; margin: 0; }
+      .top-search { width: 100%; }
+      .heading { flex-direction: column; }
+      .stats { gap: 8px; }
+      .stat { padding: 12px; }
+      .stat-value { font-size: 21px; }
+      .form-grid { grid-template-columns: 1fr; }
+      .form-field.full { grid-column: auto; }
+    }
+
+    /* Salesforce console list view */
+    body { background: #f3f3f3; color: #181818; font: 12px Arial, Helvetica, sans-serif; padding-bottom: 38px; }
+    .topbar { height: 49px; gap: 18px; padding: 0 10px; background: #fff; color: #181818; border-top: 4px solid #0b5cab; border-bottom: 1px solid #c9c9c9; }
+    .brand { color: #181818; font-size: 20px; font-weight: 600; }
+    .brand-mark { width: 32px; height: 32px; background: #e9f2ff; color: #1769aa; border: 3px solid #4c82ee; }
+    .top-search { width: min(360px, 36vw); margin: 0 auto; border: 1px solid #747474; border-radius: 6px; padding: 7px 12px; }
+    .profile { color: #5f6a7d; font-size: 12px; }
+    .nav { height: 36px; gap: 0; padding: 0 12px; background: #fff; border-bottom: 1px solid #c9c9c9; font-size: 14px; }
+    .nav span { padding: 0 12px; height: 100%; display: flex; align-items: center; }
+    .nav span:first-child { color: #0176d3; font-size: 18px; }
+    .nav .selected { border-bottom: 3px solid #0176d3; color: #181818; font-weight: 600; }
+    main { max-width: none; margin: 0; padding: 8px 0 0; }
+    .breadcrumbs { margin: 0 0 2px; padding: 0 18px; font-size: 11px; }
+    .heading { align-items: center; margin: 0; padding: 0 18px 8px; }
+    h1 { display: inline-block; margin: 0; font-size: 23px; font-weight: 400; }
+    .subtitle, .stats, .lower-grid { display: none !important; }
+    .heading .button-primary { padding: 6px 13px; background: #fff; color: #0176d3; font-weight: 400; }
+    .panel { border: 0; border-radius: 0; box-shadow: none; background: transparent; overflow: visible; }
+    .panel-header { min-height: 42px; padding: 6px 10px; border: 0; align-items: center; }
+    .panel-header h2 { display: none; }
+    .filters { margin-left: auto; gap: 7px; flex-wrap: nowrap; }
+    .filters input, .filters select { min-height: 30px; padding: 5px 8px; border-color: #aeb4bb; font-size: 12px; }
+    .filters input { width: 215px; }
+    .filters select { max-width: 150px; }
+    .table-wrap { border-top: 1px solid #c9c9c9; border-bottom: 1px solid #c9c9c9; overflow-x: auto; }
+    table { min-width: 1100px; white-space: nowrap; table-layout: fixed; }
+    th, td { height: 35px; padding: 7px 10px; border-bottom: 1px solid #c9c9c9; overflow: hidden; text-overflow: ellipsis; }
+    th:nth-child(1) { width: 24%; }
+    th:nth-child(2) { width: 9%; }
+    th:nth-child(3) { width: 8%; }
+    th:nth-child(4) { width: 8%; }
+    th:nth-child(5) { width: 8%; }
+    th:nth-child(6) { width: 8%; }
+    th:nth-child(7) { width: 10%; }
+    th:nth-child(8) { width: 8%; }
+    th:nth-child(9) { width: 17%; }
+    .observation-cell { max-width: 0; }
+    th { background: #f3f3f3; color: #444; font-size: 12px; font-weight: 400; text-transform: none; letter-spacing: 0; }
+    td { background: #fff; font-size: 12px; }
+    tbody tr:hover td { background: #f7fbff; }
+    .task-title { min-width: 250px; font-weight: 400; white-space: nowrap; }
+    .badge { padding: 0; border-radius: 0; background: transparent; color: #181818; font-size: 12px; }
+    .badge-progress, .badge-not-started, .badge-done { background: transparent; color: #181818; }
+    .priority-high { color: #ba0517; }
+    .table-footer { padding: 5px 8px; color: #5f6a7d; font-size: 11px; }
+    .list-meta { padding: 2px 8px 4px; color: #5f6a7d; font-size: 11px; }
+    .console-tools { display: flex; align-items: center; gap: 7px; }
+    .console-tools button { height: 30px; min-width: 30px; border: 1px solid #c9c9c9; border-radius: 16px; background: #fff; color: #0176d3; font-size: 14px; }
+    .console-tools button:hover { background: #eef4ff; }
+    .utility-bar { position: fixed; z-index: 4; bottom: 0; left: 0; right: 0; height: 36px; display: flex; align-items: center; gap: 26px; padding: 0 10px; background: #fff; border-top: 1px solid #c9c9c9; color: #444; }
+    .utility-bar span { white-space: nowrap; }
+    @media (max-width: 700px) {
+      .topbar { gap: 8px; }
+      .brand { font-size: 0; }
+      .brand-mark { font-size: 15px; }
+      .profile { display: none; }
+      .nav { overflow-x: auto; }
+      .heading { align-items: flex-start; }
+      .filters { margin-left: 0; width: 100%; flex-wrap: wrap; }
+      .filters input { flex: 1; width: 130px; }
+      .panel-header { align-items: flex-end; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">S</span><span>Single Station<small style="display:block;font-size:10px;font-weight:400;color:#5f6a7d">Salesforce</small></span></div>
+    <input id="globalSearch" class="top-search" type="search" placeholder="⌕  Pesquisar..." aria-label="Pesquisa geral">
+    <div class="profile">☆　＋　♙　?　●</div>
+  </header>
+  <nav class="nav" aria-label="Navegação principal">
+    <span>▦</span><span>Console de Atendimento</span><span class="selected">Tarefas</span><span>⌄</span><span>▣　0126285 | Caso</span><span>×</span>
+  </nav>
+
+  <main>
+    <div class="breadcrumbs">Tarefas</div>
+    <section class="heading">
+      <div><h1>Minhas Tarefas ⏷</h1><div class="subtitle">Acompanhe atividades, contratos e retornos de clientes.</div></div>
+      <button class="button-primary" id="newTaskButton">Nova tarefa</button>
+    </section>
+
+    <section class="stats" aria-label="Resumo das tarefas">
+      <article class="stat"><div class="stat-label">Total de tarefas</div><div class="stat-value" id="totalCount">0</div><div class="stat-note">Na lista atual</div></article>
+      <article class="stat"><div class="stat-label">Em andamento</div><div class="stat-value" id="progressCount">0</div><div class="stat-note">Atividades em execução</div></article>
+      <article class="stat"><div class="stat-label">Não iniciadas</div><div class="stat-value" id="notStartedCount">0</div><div class="stat-note">Aguardando início</div></article>
+      <article class="stat"><div class="stat-label">Alta prioridade</div><div class="stat-value" id="highCount">0</div><div class="stat-note">Precisam de atenção</div></article>
+    </section>
+
+    <div class="list-meta">Lista de tarefas • Classificado por Etapas • Filtrado por Status • Atualizada há 23 minutos</div>
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Minhas tarefas</h2>
+        <div class="filters">
+          <input id="taskSearch" type="search" placeholder="⌕  Pesquisar nesta lista..." aria-label="Buscar tarefas">
+          <select id="statusFilter" aria-label="Filtrar por status">
+            <option value="">Todos os status</option>
+            <option value="em andamento">Em andamento</option>
+            <option value="não iniciado">Não iniciado</option>
+            <option value="concluída">Concluída</option>
+          </select>
+          <select id="stageFilter" aria-label="Filtrar por etapa"><option value="">Todas as etapas</option></select>
+          <div class="console-tools" aria-label="Ações da lista">
+            <button type="button" title="Configurações">⚙</button><button type="button" title="Exibição em tabela">▦</button>
+            <button type="button" title="Atualizar">⟳</button><button type="button" title="Ordenar">↕</button>
+            <button type="button" title="Editar lista">✎</button><button type="button" title="Gráfico">◔</button><button type="button" title="Filtros">▽</button>
+          </div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Assunto</th><th>Etapa</th><th>Contrato</th><th>Prazo</th><th>Status</th><th>Prioridade</th><th>Resposta</th><th>Relacionado</th><th>Observação</th></tr></thead>
+          <tbody id="taskRows"></tbody>
+        </table>
+      </div>
+      <div class="table-footer" id="tableSummary"></div>
+    </section>
+
+    <section class="lower-grid">
+      <article class="panel">
+        <div class="panel-header"><h2>Anotações recentes</h2></div>
+        <div class="note-list" id="notesList"></div>
+      </article>
+      <article class="panel">
+        <div class="panel-header"><h2>Assistente virtual</h2></div>
+        <div class="assistant-box">
+          <p>API simulada local conectada: <code>GET /api/tasks</code>, <code>GET /api/notes</code> e <code>POST /api/tasks</code>. Os dados existem apenas nesta página. Exemplo de busca: <strong>773174</strong>.</p>
+          <form class="assistant-form" id="assistantForm">
+            <input id="assistantQuestion" type="text" placeholder="Pergunte sobre um contrato..." aria-label="Pergunta ao assistente">
+            <button class="button-primary" type="submit">Buscar</button>
+          </form>
+          <div class="assistant-answer" id="assistantAnswer" aria-live="polite"></div>
+        </div>
+      </article>
+    </section>
+  </main>
+  <div class="utility-bar"><span>◉　Omni-Channel</span><span>☷　To Do List</span></div>
+
+  <div class="modal-backdrop" id="taskModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <form class="modal" id="taskForm">
+      <div class="modal-head"><h2 id="modalTitle">Nova tarefa</h2><button type="button" class="close" id="closeModal" aria-label="Fechar">×</button></div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-field full"><label for="titleInput">Assunto</label><input id="titleInput" required></div>
+          <div class="form-field"><label for="contractInput">Contrato</label><input id="contractInput" required></div>
+          <div class="form-field"><label for="dueInput">Prazo</label><input id="dueInput" type="date" required></div>
+          <div class="form-field"><label for="statusInput">Status</label><select id="statusInput"><option>em andamento</option><option>não iniciado</option><option>concluída</option></select></div>
+          <div class="form-field"><label for="stageInput">Etapa</label><input id="stageInput" value="Retenção"></div>
+          <div class="form-field"><label for="priorityInput">Prioridade</label><select id="priorityInput"><option>Normal</option><option>Alta</option><option>Baixa</option></select></div>
+          <div class="form-field full"><label for="observationInput">Observação</label><textarea id="observationInput" placeholder="Adicione detalhes da tarefa"></textarea></div>
+        </div>
+      </div>
+      <div class="modal-actions"><button type="button" class="button-light" id="cancelModal">Cancelar</button><button type="submit" class="button-primary">Salvar tarefa</button></div>
+    </form>
+  </div>
+
+  <script>
+    const mockApiData = {
+      tasks: [
+        { title: "Tarefa com contato: Reforço de reparos e benfeitorias - IQ", owner: "Rudson Felipe Moreira", due: "2099-10-13", status: "em andamento", stage: "Pré Saída IQ", contract: "773174", response: "Nenhum", observation: "Sem sucesso; encaminhado o pitch.", priority: "Normal", related: "01430926" },
+        { title: "Tarefa com contato: Reforço de reparos e benfeitorias - IQ", owner: "Marina Costa", due: "2099-10-14", status: "em andamento", stage: "Pré Saída IQ", contract: "996334", response: "Nenhum", observation: "Cliente pediu retorno sobre a proposta.", priority: "Normal", related: "01430927" },
+        { title: "Retenção - PP", owner: "Rafael Souza", due: "2099-09-30", status: "em andamento", stage: "Retenção", contract: "106893", response: "Retornar contato", observation: "Ligação sem sucesso.", priority: "Alta", related: "01430928" },
+        { title: "Retenção - PP", owner: "Marina Costa", due: "2099-09-30", status: "em andamento", stage: "Retenção", contract: "996334", response: "Nenhum", observation: "Aguardando resposta do cliente.", priority: "Normal", related: "01430929" },
+        { title: "Retenção - PP", owner: "Rudson Felipe Moreira", due: "2099-10-05", status: "em andamento", stage: "Retenção", contract: "853514", response: "Retornar contato", observation: "Nova tentativa agendada.", priority: "Normal", related: "01430930" },
+        { title: "Retenção - PP", owner: "João Lima", due: "2099-10-05", status: "em andamento", stage: "Retenção", contract: "108846", response: "Nenhum", observation: "Cliente ainda avaliando as opções.", priority: "Baixa", related: "01430931" },
+        { title: "Retenção - PP", owner: "Marina Costa", due: "2099-10-06", status: "em andamento", stage: "Retenção", contract: "412144", response: "Retornar contato", observation: "Deixar mensagem ao cliente.", priority: "Normal", related: "01430932" },
+        { title: "Retenção - PP", owner: "Rafael Souza", due: "2099-10-07", status: "em andamento", stage: "Retenção", contract: "119755", response: "Nenhum", observation: "Aguardando confirmação.", priority: "Normal", related: "01430933" },
+        { title: "Retenção - PP", owner: "João Lima", due: "2099-10-11", status: "em andamento", stage: "Retenção", contract: "113551", response: "Retornar contato", observation: "Contato realizado; sem retorno.", priority: "Alta", related: "01430934" },
+        { title: "Retenção - PP", owner: "Marina Costa", due: "data-invalida", status: "não iniciado", stage: "Retenção", contract: "538496", response: "Nenhum", observation: "Tarefa ainda não iniciada.", priority: "Normal", related: "01430935" },
+        { title: "Tarefa com contato: Reforço de reparos e benfeitorias - IQ", owner: "Rudson Felipe Moreira", due: "2099-10-08", status: "em andamento", stage: "Pré Saída IQ", contract: "103335", response: "Retornar contato", observation: "Confirmar os reparos antes da saída.", priority: "Alta", related: "01430936" },
+        { title: "Tarefa com contato: Reforço de reparos e benfeitorias - IQ", owner: "Marina Costa", due: "2099-10-15", status: "em andamento", stage: "Pré Saída IQ", contract: "107175", response: "Nenhum", observation: "Aguardando confirmação do cliente.", priority: "Normal", related: "01430937" },
+        { title: "Tarefa com contato: Orientação para vistoria", owner: "João Lima", due: "2099-10-09", status: "em andamento", stage: "Pré Saída PP", contract: "105779", response: "Retornar contato", observation: "Orientar o cliente sobre a vistoria.", priority: "Normal", related: "01430938" },
+        { title: "Tarefa com contato: Orientação para vistoria", owner: "Rafael Souza", due: "2099-10-14", status: "não iniciado", stage: "Pré Saída PP", contract: "972879", response: "Nenhum", observation: "Programar contato antes da vistoria.", priority: "Baixa", related: "01430939" },
+        { title: "Tarefa: Check-out - IQ", owner: "Marina Costa", due: "2099-10-12", status: "não iniciado", stage: "Pós Saída IQ", contract: "103277", response: "Nenhum", observation: "Realizar acompanhamento pós-saída.", priority: "Normal", related: "01430940" },
+        { title: "Tarefa: Check-out - IQ", owner: "Rafael Souza", due: "2099-10-18", status: "não iniciado", stage: "Pós Saída IQ", contract: "100456", response: "Retornar contato", observation: "Agendar check-out com o cliente.", priority: "Alta", related: "01430941" },
+        { title: "Tarefa: Check-out - PP", owner: "João Lima", due: "2099-10-20", status: "não iniciado", stage: "Pós Saída PP", contract: "100829", response: "Nenhum", observation: "Acompanhar conclusão do check-out.", priority: "Normal", related: "01430942" },
+        { title: "Tarefa: Check-out - PP", owner: "Rudson Felipe Moreira", due: "2099-10-24", status: "não iniciado", stage: "Pós Saída PP", contract: "111087", response: "Retornar contato", observation: "Confirmar a finalização com o cliente.", priority: "Baixa", related: "01430943" }
+      ],
+      notes: [
+        { contact: "Contrato 773174", text: "Sem sucesso; encaminhado o pitch." },
+        { contact: "Contrato 996334", text: "Cliente pediu retorno sobre a proposta." },
+        { contact: "Contrato 106893", text: "Ligação sem sucesso." }
+      ]
+    };
+    let tasks = [];
+    let notes = [];
+
+    // Simula endpoints REST e respostas JSON sem servidor ou acesso à rede.
+    function apiRequest(path, options) {
+      const method = (options && options.method) || "GET";
+      return new Promise(function (resolve, reject) {
+        window.setTimeout(function () {
+          if (path === "/api/tasks" && method === "GET") {
+            resolve(JSON.parse(JSON.stringify(mockApiData.tasks)));
+          } else if (path === "/api/notes" && method === "GET") {
+            resolve(JSON.parse(JSON.stringify(mockApiData.notes)));
+          } else if (path === "/api/tasks" && method === "POST") {
+            const task = JSON.parse(options.body);
+            mockApiData.tasks.unshift(task);
+            resolve(JSON.parse(JSON.stringify(task)));
+          } else {
+            reject(new Error("Endpoint local não encontrado: " + method + " " + path));
+          }
+        }, 120);
+      });
+    }
+
+    const rows = document.getElementById("taskRows");
+    const taskSearch = document.getElementById("taskSearch");
+    const statusFilter = document.getElementById("statusFilter");
+    const stageFilter = document.getElementById("stageFilter");
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, function (character) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character];
+      });
+    }
+
+    function formatDate(value) {
+      const parts = value.split("-");
+      if (parts.length !== 3 || isNaN(Date.parse(value))) return "Data inválida";
+      return parts[2] + "/" + parts[1] + "/" + parts[0];
+    }
+
+    function renderTasks() {
+      const query = taskSearch.value.trim().toLocaleLowerCase("pt-BR");
+      const status = statusFilter.value;
+      const stage = stageFilter.value;
+      const filtered = tasks.filter(function (task) {
+        const searchable = [task.title, task.contract, task.stage, task.observation, task.related, task.priority].join(" ").toLocaleLowerCase("pt-BR");
+        return (!query || searchable.includes(query)) && (!status || task.status === status) && (!stage || task.stage === stage);
+      });
+      rows.innerHTML = "";
+      if (!filtered.length) {
+        rows.innerHTML = '<tr><td colspan="9" class="empty">Nenhuma tarefa corresponde aos filtros.</td></tr>';
+      } else {
+        filtered.forEach(function (task) {
+          const statusClass = task.status === "em andamento" ? "badge-progress" : task.status === "concluída" ? "badge-done" : "badge-not-started";
+          const priorityClass = task.priority === "Alta" ? "priority-high" : task.priority === "Baixa" ? "priority-low" : "priority-normal";
+          const tr = document.createElement("tr");
+          tr.innerHTML = '<td class="task-title" title="' + escapeHtml(task.observation) + '">' + escapeHtml(task.title) + '</td>' +
+            '<td>' + escapeHtml(task.stage) + '</td>' +
+            '<td>' + escapeHtml(task.contract) + '</td>' +
+            '<td>' + escapeHtml(formatDate(task.due)) + '</td>' +
+            '<td><span class="badge ' + statusClass + '">' + escapeHtml(task.status) + '</span></td>' +
+            '<td class="' + priorityClass + '">' + escapeHtml(task.priority) + '</td>' +
+            '<td>' + escapeHtml(task.response || "—") + '</td>' +
+            '<td>' + escapeHtml(task.related || "—") + '</td>' +
+            '<td class="observation-cell" title="' + escapeHtml(task.observation) + '">' + escapeHtml(task.observation) + '</td>';
+          tr.querySelector(".task-title").addEventListener("click", function () { showTaskDetails(task); });
+          rows.appendChild(tr);
+        });
+      }
+      document.getElementById("tableSummary").textContent = "Exibindo " + filtered.length + " de " + tasks.length + " tarefas";
+      document.getElementById("totalCount").textContent = tasks.length;
+      document.getElementById("progressCount").textContent = tasks.filter(function (t) { return t.status === "em andamento"; }).length;
+      document.getElementById("notStartedCount").textContent = tasks.filter(function (t) { return t.status === "não iniciado"; }).length;
+      document.getElementById("highCount").textContent = tasks.filter(function (t) { return t.priority === "Alta"; }).length;
+    }
+
+    function showTaskDetails(task) {
+      document.getElementById("assistantAnswer").textContent =
+        task.title + "\nContrato: " + task.contract + "\nStatus: " + task.status +
+        " | Etapa: " + task.stage + "\nPrazo: " + formatDate(task.due) +
+        "\nPrioridade: " + task.priority +
+        "\nObservação: " + task.observation;
+    }
+
+    function renderNotes() {
+      const list = document.getElementById("notesList");
+      list.innerHTML = notes.map(function (note) {
+        return '<div class="note"><div class="note-contact">' + escapeHtml(note.contact) + '</div><div>' + escapeHtml(note.text) + '</div></div>';
+      }).join("");
+    }
+
+    Array.from(new Set(tasks.map(function (task) { return task.stage; }))).forEach(function (stage) {
+      const option = document.createElement("option");
+      option.value = stage;
+      option.textContent = stage;
+      stageFilter.appendChild(option);
+    });
+
+    taskSearch.addEventListener("input", renderTasks);
+    statusFilter.addEventListener("change", renderTasks);
+    stageFilter.addEventListener("change", renderTasks);
+    document.getElementById("globalSearch").addEventListener("input", function (event) {
+      taskSearch.value = event.target.value;
+      renderTasks();
+    });
+
+    document.getElementById("assistantForm").addEventListener("submit", function (event) {
+      event.preventDefault();
+      const query = document.getElementById("assistantQuestion").value.trim().toLocaleLowerCase("pt-BR");
+      const answer = document.getElementById("assistantAnswer");
+      if (!query) { answer.textContent = "Digite um contrato, assunto ou termo para buscar."; return; }
+      const matches = tasks.filter(function (task) {
+        return [task.title, task.contract, task.stage, task.observation].join(" ").toLocaleLowerCase("pt-BR").includes(query);
+      });
+      const matchingNotes = notes.filter(function (note) { return (note.contact + " " + note.text).toLocaleLowerCase("pt-BR").includes(query); });
+      if (!matches.length && !matchingNotes.length) { answer.textContent = "Não encontrei tarefas ou anotações para “" + query + "”."; return; }
+      const lines = [];
+      matches.forEach(function (task) { lines.push(task.title + " | contrato " + task.contract + " | " + task.status + " | prazo " + formatDate(task.due) + "\nObservação: " + task.observation); });
+      matchingNotes.forEach(function (note) { lines.push("Anotação — " + note.contact + ": " + note.text); });
+      answer.textContent = lines.join("\n\n");
+    });
+
+    const modal = document.getElementById("taskModal");
+    function closeModal() { modal.classList.remove("open"); }
+    document.getElementById("newTaskButton").addEventListener("click", function () { modal.classList.add("open"); document.getElementById("titleInput").focus(); });
+    document.getElementById("closeModal").addEventListener("click", closeModal);
+    document.getElementById("cancelModal").addEventListener("click", closeModal);
+    modal.addEventListener("click", function (event) { if (event.target === modal) closeModal(); });
+    document.addEventListener("keydown", function (event) { if (event.key === "Escape") closeModal(); });
+    document.getElementById("taskForm").addEventListener("submit", function (event) {
+      event.preventDefault();
+      const novaTarefa = {
+        title: document.getElementById("titleInput").value.trim(),
+        contract: document.getElementById("contractInput").value.trim(),
+        due: document.getElementById("dueInput").value,
+        status: document.getElementById("statusInput").value,
+        stage: document.getElementById("stageInput").value.trim() || "Sem etapa",
+        priority: document.getElementById("priorityInput").value,
+        observation: document.getElementById("observationInput").value.trim(),
+        response: "Nenhum", related: ""
+      };
+      apiRequest("/api/tasks", { method: "POST", body: JSON.stringify(novaTarefa) })
+        .then(function (tarefaSalva) {
+          tasks.unshift(tarefaSalva);
+          if (!Array.from(stageFilter.options).some(function (option) { return option.value === tarefaSalva.stage; })) {
+            const option = document.createElement("option"); option.value = tarefaSalva.stage; option.textContent = tarefaSalva.stage; stageFilter.appendChild(option);
+          }
+          document.getElementById("taskForm").reset();
+          document.getElementById("stageInput").value = "Retenção";
+          closeModal();
+          renderTasks();
+        })
+        .catch(function (error) {
+          document.getElementById("assistantAnswer").textContent = "Falha ao salvar pela API simulada: " + error.message;
+        });
+    });
+
+    Promise.all([apiRequest("/api/tasks"), apiRequest("/api/notes")])
+      .then(function (responses) {
+        tasks = responses[0];
+        notes = responses[1];
+        Array.from(new Set(tasks.map(function (task) { return task.stage; }))).forEach(function (stage) {
+          const option = document.createElement("option");
+          option.value = stage;
+          option.textContent = stage;
+          stageFilter.appendChild(option);
+        });
+        renderNotes();
+        renderTasks();
+      })
+      .catch(function (error) {
+        document.getElementById("tableSummary").textContent = "Falha ao consultar a API simulada: " + error.message;
+      });
+  </script>
+</body>
+</html>
