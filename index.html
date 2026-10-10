@@ -244,6 +244,12 @@
     th:nth-child(8) { width: 8%; }
     th:nth-child(9) { width: 17%; }
     .observation-cell { max-width: 0; }
+    .observation-text { display: inline-block; max-width: 110px; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .observation-actions { display: inline-flex; gap: 4px; margin-left: 6px; vertical-align: middle; }
+    .observation-actions button { padding: 3px 7px; border: 1px solid #c9c9c9; border-radius: 4px; background: #fff; color: #0176d3; font-size: 11px; }
+    .observation-editor { display: block; width: 145px; min-height: 52px; padding: 5px; font: inherit; }
+    .observation-cell .observation-editor + .observation-actions { display: flex; margin: 4px 0 0; }
+    .observation-cell:focus { outline: 2px solid #0176d3; outline-offset: -2px; white-space: normal; overflow: visible; }
     th { background: #f3f3f3; color: #444; font-size: 12px; font-weight: 400; text-transform: none; letter-spacing: 0; }
     td { background: #fff; font-size: 12px; }
     tbody tr:hover td { background: #f7fbff; }
@@ -332,7 +338,7 @@
       <article class="panel">
         <div class="panel-header"><h2>Assistente virtual</h2></div>
         <div class="assistant-box">
-          <p>API simulada local conectada: <code>GET /api/tasks</code>, <code>GET /api/notes</code> e <code>POST /api/tasks</code>. Os dados existem apenas nesta página. Exemplo de busca: <strong>773174</strong>.</p>
+          <p>API conectada: <code>GET /api/tasks</code>, <code>GET /api/notes</code> e <code>POST /api/assistant</code>. Exemplo de busca: <strong>773174</strong>.</p>
           <form class="assistant-form" id="assistantForm">
             <input id="assistantQuestion" type="text" placeholder="Pergunte sobre um contrato..." aria-label="Pergunta ao assistente">
             <button class="button-primary" type="submit">Buscar</button>
@@ -393,25 +399,16 @@
     let tasks = [];
     let notes = [];
 
-    // Simula endpoints REST e respostas JSON sem servidor ou acesso à rede.
+        // Usa os endpoints Python publicados na Vercel.
     function apiRequest(path, options) {
-      const method = (options && options.method) || "GET";
-      return new Promise(function (resolve, reject) {
-        window.setTimeout(function () {
-          if (path === "/api/tasks" && method === "GET") {
-            resolve(JSON.parse(JSON.stringify(mockApiData.tasks)));
-          } else if (path === "/api/notes" && method === "GET") {
-            resolve(JSON.parse(JSON.stringify(mockApiData.notes)));
-          } else if (path === "/api/tasks" && method === "POST") {
-            const task = JSON.parse(options.body);
-            mockApiData.tasks.unshift(task);
-            resolve(JSON.parse(JSON.stringify(task)));
-          } else {
-            reject(new Error("Endpoint local não encontrado: " + method + " " + path));
-          }
-        }, 120);
+      return fetch(path, options || {}).then(function (response) {
+        return response.json().then(function (data) {
+          if (!response.ok) throw new Error(data.error || "Falha na API (" + response.status + ")");
+          return data;
+        });
       });
     }
+
 
     const rows = document.getElementById("taskRows");
     const taskSearch = document.getElementById("taskSearch");
@@ -454,8 +451,24 @@
             '<td class="' + priorityClass + '">' + escapeHtml(task.priority) + '</td>' +
             '<td>' + escapeHtml(task.response || "—") + '</td>' +
             '<td>' + escapeHtml(task.related || "—") + '</td>' +
-            '<td class="observation-cell" title="' + escapeHtml(task.observation) + '">' + escapeHtml(task.observation) + '</td>';
+            '<td class="observation-cell"><span class="observation-text">' + escapeHtml(task.observation) + '</span>' +
+            '<span class="observation-actions"><button type="button" class="edit-observation">Editar</button></span></td>';
           tr.querySelector(".task-title").addEventListener("click", function () { showTaskDetails(task); });
+          tr.querySelector(".edit-observation").addEventListener("click", function () {
+            const cell = tr.querySelector(".observation-cell");
+            const observationAtual = task.observation || "";
+            cell.innerHTML = '<textarea class="observation-editor" aria-label="Editar observação" spellcheck="true"></textarea>' +
+              '<span class="observation-actions"><button type="button" class="save-observation">Salvar</button><button type="button" class="cancel-observation">Cancelar</button></span>';
+            cell.querySelector(".observation-editor").value = observationAtual;
+            cell.querySelector(".observation-editor").focus();
+            cell.querySelector(".save-observation").addEventListener("click", function () {
+              task.observation = cell.querySelector(".observation-editor").value.trim();
+              renderTasks();
+            });
+            cell.querySelector(".cancel-observation").addEventListener("click", function () {
+              renderTasks();
+            });
+          });
           rows.appendChild(tr);
         });
       }
@@ -496,21 +509,31 @@
       renderTasks();
     });
 
-    document.getElementById("assistantForm").addEventListener("submit", function (event) {
+        document.getElementById("assistantForm").addEventListener("submit", function (event) {
       event.preventDefault();
-      const query = document.getElementById("assistantQuestion").value.trim().toLocaleLowerCase("pt-BR");
+      const question = document.getElementById("assistantQuestion").value.trim();
       const answer = document.getElementById("assistantAnswer");
-      if (!query) { answer.textContent = "Digite um contrato, assunto ou termo para buscar."; return; }
-      const matches = tasks.filter(function (task) {
-        return [task.title, task.contract, task.stage, task.observation].join(" ").toLocaleLowerCase("pt-BR").includes(query);
+      if (!question) { answer.textContent = "Digite um contrato, assunto ou termo para buscar."; return; }
+      answer.textContent = "Consultando a API...";
+      apiRequest("/api/assistant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: question })
+      }).then(function (result) {
+        const lines = [result.answer];
+        result.tasks.forEach(function (task) {
+          lines.push(task.title + " | contrato " + task.contract + " | " + task.status +
+            " | prazo " + formatDate(task.due) + "\nObservação: " + task.observation);
+        });
+        result.notes.forEach(function (note) {
+          lines.push("Anotação — " + note.contact + ": " + note.text);
+        });
+        answer.textContent = lines.join("\n\n");
+      }).catch(function (error) {
+        answer.textContent = "Falha ao consultar a API: " + error.message;
       });
-      const matchingNotes = notes.filter(function (note) { return (note.contact + " " + note.text).toLocaleLowerCase("pt-BR").includes(query); });
-      if (!matches.length && !matchingNotes.length) { answer.textContent = "Não encontrei tarefas ou anotações para “" + query + "”."; return; }
-      const lines = [];
-      matches.forEach(function (task) { lines.push(task.title + " | contrato " + task.contract + " | " + task.status + " | prazo " + formatDate(task.due) + "\nObservação: " + task.observation); });
-      matchingNotes.forEach(function (note) { lines.push("Anotação — " + note.contact + ": " + note.text); });
-      answer.textContent = lines.join("\n\n");
     });
+
 
     const modal = document.getElementById("taskModal");
     function closeModal() { modal.classList.remove("open"); }
@@ -547,21 +570,37 @@
         });
     });
 
-    Promise.all([apiRequest("/api/tasks"), apiRequest("/api/notes")])
+        Promise.all([apiRequest("/api/tasks"), apiRequest("/api/notes")])
       .then(function (responses) {
         tasks = responses[0];
         notes = responses[1];
         Array.from(new Set(tasks.map(function (task) { return task.stage; }))).forEach(function (stage) {
-          const option = document.createElement("option");
-          option.value = stage;
-          option.textContent = stage;
-          stageFilter.appendChild(option);
+          if (!Array.from(stageFilter.options).some(function (option) { return option.value === stage; })) {
+            const option = document.createElement("option");
+            option.value = stage;
+            option.textContent = stage;
+            stageFilter.appendChild(option);
+          }
         });
         renderNotes();
         renderTasks();
       })
       .catch(function (error) {
-        document.getElementById("tableSummary").textContent = "Falha ao consultar a API simulada: " + error.message;
+        // A página também pode ser aberta localmente, sem os endpoints da Vercel.
+        tasks = mockApiData.tasks;
+        notes = mockApiData.notes;
+        Array.from(new Set(tasks.map(function (task) { return task.stage; }))).forEach(function (stage) {
+          if (!Array.from(stageFilter.options).some(function (option) { return option.value === stage; })) {
+            const option = document.createElement("option");
+            option.value = stage;
+            option.textContent = stage;
+            stageFilter.appendChild(option);
+          }
+        });
+        renderNotes();
+        renderTasks();
+        document.getElementById("tableSummary").textContent +=
+          " • exibindo dados de demonstração (API indisponível: " + error.message + ")";
       });
   </script>
 </body>
