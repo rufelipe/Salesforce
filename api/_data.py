@@ -32,7 +32,7 @@ def notes():
     result = []
     for item in adapter.buscar_anotacoes():
         contact = item.get("contato", "")
-        match = re.search(r"(\\d+)", str(contact))
+        match = re.search(r"(\d+)", str(contact))
         contract = match.group(1) if match else ""
         result.append({
             "contact": contact, "text": item.get("texto", ""),
