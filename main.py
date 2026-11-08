@@ -94,7 +94,7 @@ class SalesforceDemoAdapter(CRMAdapter):
         self.tarefas = [
             {
                 "titulo": "Tarefa com contato: Reforço de reparos e benfeitorias - IQ",
-                "responsavel": "Rudson Felipe Moreira", "prazo": "2099-10-13",
+                "responsavel": "Rudson Felipe Moreira", "prazo": "2026-11-05",
                 "status": "em andamento", "etapa": "Pré Saída IQ",
                 "contrato": "773174", "resposta": "Nenhum",
                 "observacao": "Sem sucesso; encaminhado o pitch.",
@@ -102,7 +102,7 @@ class SalesforceDemoAdapter(CRMAdapter):
             },
             {
                 "titulo": "Tarefa com contato: Reforço de reparos e benfeitorias - IQ",
-                "responsavel": "Marina Costa", "prazo": "2099-10-14",
+                "responsavel": "Marina Costa", "prazo": "2026-11-01",
                 "status": "em andamento", "etapa": "Pré Saída IQ",
                 "contrato": "996334", "resposta": "Nenhum",
                 "observacao": "Cliente pediu retorno sobre a proposta.",
