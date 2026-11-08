@@ -153,11 +153,9 @@
     .note { padding: 12px 0; border-bottom: 1px solid var(--line); }
     .note:last-child { border-bottom: 0; }
     .note-contact { color: var(--blue); font-weight: 700; margin-bottom: 5px; }
-    .assistant-box { padding: 18px; }
-    .assistant-box p { color: var(--muted); line-height: 1.5; margin: 0 0 12px; }
-    .assistant-form { display: flex; gap: 8px; }
-    .assistant-form input { min-width: 0; flex: 1; padding: 10px; border: 1px solid #c9cdd3; border-radius: 4px; }
-    .assistant-answer { white-space: pre-line; margin-top: 14px; line-height: 1.5; }
+    .assistant-box { padding: 12px; }
+    .assistant-box p { color: var(--muted); line-height: 1.5; margin: 0 0 10px; }
+    #yodaAssistant { display: block; width: 100%; min-height: 520px; height: 620px; border: 1px solid #dfe3ec; border-radius: 12px; background: #f3f6fa; }
     .empty { padding: 28px; text-align: center; color: var(--muted); }
 
     .modal-backdrop {
@@ -336,14 +334,16 @@
         <div class="note-list" id="notesList"></div>
       </article>
       <article class="panel">
-        <div class="panel-header"><h2>Assistente virtual</h2></div>
+        <div class="panel-header"><h2>Assistente YODA</h2></div>
         <div class="assistant-box">
-          <p>API conectada: <code>GET /api/tasks</code>, <code>GET /api/notes</code> e <code>POST /api/assistant</code>. Exemplo de busca: <strong>773174</strong>.</p>
-          <form class="assistant-form" id="assistantForm">
-            <input id="assistantQuestion" type="text" placeholder="Pergunte sobre um contrato..." aria-label="Pergunta ao assistente">
-            <button class="button-primary" type="submit">Buscar</button>
-          </form>
-          <div class="assistant-answer" id="assistantAnswer" aria-live="polite"></div>
+          <p>Assistente externo conectado por HTTP/API. Ele consulta este Salesforce demonstrativo e mantém a inteligência hospedada separadamente no Render.</p>
+          <iframe
+            id="yodaAssistant"
+            src="https://assistente-virtual-front.onrender.com/?embed=1"
+            title="Assistente YODA"
+            loading="lazy"
+            allow="microphone">
+          </iframe>
         </div>
       </article>
     </section>
