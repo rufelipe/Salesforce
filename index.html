@@ -387,6 +387,20 @@
       .filters input { flex: 1; width: 130px; }
       .panel-header { align-items: flex-end; }
     }
+  
+    .yoda-push-enable {
+      position: fixed; z-index: 29; left: 14px; bottom: 48px;
+      border: 1px solid #0176d3; border-radius: 22px; padding: 10px 15px;
+      background: #fff; color: #014486; box-shadow: 0 3px 14px rgba(0,0,0,.15);
+      font-weight: 700; cursor: pointer;
+    }
+    .yoda-push-enable[hidden] { display: none; }
+    .yoda-push-status {
+      position: fixed; z-index: 50; left: 14px; bottom: 94px; max-width: 320px;
+      padding: 10px 13px; border-radius: 8px; background: #032d60; color: #fff;
+      box-shadow: 0 3px 14px rgba(0,0,0,.2); font-size: 12px;
+    }
+
   </style>
 </head>
 <body>
@@ -467,7 +481,7 @@
           <div class="form-field full"><label for="titleInput">Assunto</label><input id="titleInput" required></div>
           <div class="form-field"><label for="contractInput">Contrato</label><input id="contractInput" required></div>
           <div class="form-field"><label for="dueInput">Prazo</label><input id="dueInput" type="date" required></div>
-          <div class="form-field"><label for="callTimeInput">Horário da ligação</label><input id="callTimeInput" type="time"></div>
+          <div class="form-field"><label for="callTimeInput">Horário do compromisso</label><input id="callTimeInput" type="time"></div>
           <div class="form-field"><label for="statusInput">Status</label><select id="statusInput"><option>em andamento</option><option>não iniciado</option><option>concluída</option></select></div>
           <div class="form-field"><label for="stageInput">Etapa</label><input id="stageInput" value="Retenção"></div>
           <div class="form-field"><label for="priorityInput">Prioridade</label><select id="priorityInput"><option>Normal</option><option>Alta</option><option>Baixa</option></select></div>
@@ -550,6 +564,7 @@
     }
 
     function renderTasks() {
+      window.salesforceTasks = tasks;
       const query = taskSearch.value.trim().toLocaleLowerCase("pt-BR");
       const status = statusFilter.value;
       const stage = stageFilter.value;
@@ -758,6 +773,7 @@ function showTaskDetails(task) {
         tasks.unshift(tarefa);
       }
       localStorage.setItem("salesforce_demo_tasks", JSON.stringify(tasks));
+      window.dispatchEvent(new CustomEvent("yoda-task-reminder", { detail: tarefa }));
       document.getElementById("taskForm").reset();
       document.getElementById("stageInput").value = "Retenção";
       document.getElementById("editingTaskId").value = "";
@@ -794,6 +810,7 @@ function showTaskDetails(task) {
           }
         });
         renderTasks();
+        window.dispatchEvent(new Event("yoda-schedule-existing-reminders"));
         openTaskFromUrl();
         syncAssistant();
       })
@@ -821,5 +838,97 @@ function showTaskDetails(task) {
           " • exibindo dados de demonstração (API indisponível: " + error.message + ")";
       });
   </script>
+
+  <button id="enableYodaPush" class="yoda-push-enable" type="button">🔔 Ativar alertas do YODA</button>
+  <div id="yodaPushStatus" class="yoda-push-status" role="status" hidden></div>
+
+  <script>
+    (function () {
+      const enableButton = document.getElementById("enableYodaPush");
+      const statusBox = document.getElementById("yodaPushStatus");
+      function showPushStatus(message) {
+        statusBox.textContent = message;
+        statusBox.hidden = false;
+        window.setTimeout(function () { statusBox.hidden = true; }, 6500);
+      }
+      function urlBase64ToUint8Array(value) {
+        const padding = "=".repeat((4 - value.length % 4) % 4);
+        const raw = atob((value + padding).replace(/-/g, "+").replace(/_/g, "/"));
+        return Uint8Array.from(Array.from(raw).map(function (char) { return char.charCodeAt(0); }));
+      }
+      async function activateYodaPush() {
+        if (!("serviceWorker" in navigator) || !("PushManager" in window) || !window.isSecureContext) {
+          showPushStatus("Este navegador precisa oferecer suporte a notificações Push e HTTPS.");
+          return;
+        }
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          showPushStatus("Permissão de notificação não concedida no navegador.");
+          return;
+        }
+        const registration = await navigator.serviceWorker.register("/service-worker.js");
+        const config = await apiRequest("/api/push_config");
+        let subscription = await registration.pushManager.getSubscription();
+        if (!subscription) {
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(config.public_key)
+          });
+        }
+        await apiRequest("/api/push_subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subscription: subscription.toJSON() })
+        });
+        enableButton.textContent = "✓ Alertas do YODA ativados";
+        showPushStatus("Notificações ativadas neste navegador.");
+      }
+      enableButton.addEventListener("click", function () {
+        activateYodaPush().catch(function (error) {
+          showPushStatus("Não foi possível ativar: " + error.message);
+        });
+      });
+      if ("serviceWorker" in navigator && window.isSecureContext) {
+        navigator.serviceWorker.register("/service-worker.js").catch(function () {});
+      }
+
+      async function scheduleTaskReminder(task) {
+        if (!task || !task.id) return;
+        const cancel = !task.due || !task.call_time || /conclu/i.test(String(task.status || ""));
+        let start = null;
+        if (!cancel) {
+          const dateParts = String(task.due).split("-").map(Number);
+          const timeParts = String(task.call_time).slice(0, 5).split(":").map(Number);
+          if (dateParts.length !== 3 || timeParts.length !== 2 ||
+              dateParts.some(Number.isNaN) || timeParts.some(Number.isNaN)) return;
+          start = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], timeParts[0], timeParts[1]);
+          if (Number.isNaN(start.getTime())) return;
+        }
+        try {
+          await apiRequest("/api/reminders", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              task_id: String(task.id),
+              cancel: cancel || start.getTime() <= Date.now(),
+              title: task.title || "Compromisso",
+              contract: task.contract || "",
+              starts_at: start && start.getTime() > Date.now() ? start.toISOString() : "",
+              open_url: task.url || ("/?task=" + encodeURIComponent(task.id))
+            })
+          });
+        } catch (error) {
+          console.warn("YODA: não foi possível registrar o lembrete.", error);
+        }
+      }
+      window.addEventListener("yoda-task-reminder", function (event) {
+        scheduleTaskReminder(event.detail);
+      });
+      window.addEventListener("yoda-schedule-existing-reminders", function () {
+        (window.salesforceTasks || []).forEach(scheduleTaskReminder);
+      });
+    })();
+  </script>
+
 </body>
 </html>
