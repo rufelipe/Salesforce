@@ -16,6 +16,7 @@ def tasks():
             "title": item.get("titulo", ""),
             "owner": item.get("responsavel", ""),
             "due": item.get("prazo", ""),
+            "call_time": item.get("horario_ligacao", item.get("horario", "")),
             "status": item.get("status", ""),
             "stage": item.get("etapa", ""),
             "contract": item.get("contrato", ""),
