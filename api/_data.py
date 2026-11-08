@@ -9,8 +9,10 @@ adapter = SalesforceDemoAdapter()
 
 def tasks():
     result = []
-    for item in adapter.buscar_tarefas():
+    for index, item in enumerate(adapter.buscar_tarefas(), start=1045):
         result.append({
+            "id": str(index),
+            "url": "/?task=" + str(index),
             "title": item.get("titulo", ""),
             "owner": item.get("responsavel", ""),
             "due": item.get("prazo", ""),
