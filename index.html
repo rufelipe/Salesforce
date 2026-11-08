@@ -437,13 +437,6 @@
       <div class="table-footer" id="tableSummary"></div>
     </section>
 
-    <section class="lower-grid">
-      <article class="panel">
-        <div class="panel-header"><h2>Anotações recentes</h2></div>
-        <div class="note-list" id="notesList"></div>
-      </article>
-
-    </section>
   </main>
 
   <aside id="yodaWidget" class="yoda-widget" aria-label="Assistente YODA">
@@ -478,7 +471,13 @@
       <div class="modal-actions"><button type="button" class="button-light" id="cancelModal">Cancelar</button><button type="submit" class="button-primary">Salvar tarefa</button></div>
     </form>
   </div>
-
+  <div class="modal-backdrop" id="contractModal" role="dialog" aria-modal="true" aria-labelledby="contractModalTitle">
+    <section class="modal">
+      <div class="modal-head"><h2 id="contractModalTitle">Contrato</h2><button type="button" class="close" id="closeContractModal">×</button></div>
+      <div class="modal-body" id="contractModalBody"></div>
+      <div class="modal-actions"><button type="button" class="button-primary" id="doneContractModal">Fechar</button></div>
+    </section>
+  </div>
   <script>
     const mockApiData = {
       tasks: [
@@ -524,7 +523,7 @@
     function syncAssistant() {
       const frame = document.getElementById("yodaAssistant");
       if (!frame || !frame.contentWindow) return;
-      frame.contentWindow.postMessage({ type: "salesforce-tasks", tasks: tasks }, "*");
+      frame.contentWindow.postMessage({ type: "salesforce-data", tasks: tasks, notes: notes }, "*");
     }
 
     const rows = document.getElementById("taskRows");
@@ -652,8 +651,38 @@ function showTaskDetails(task) {
       yodaFrame.hidden = false;
       yodaFrame.contentWindow.postMessage({ type: "yoda-parent-expand" }, "*");
     });
+    function openContractDetails(contractNumber) {
+      const number = String(contractNumber || "").trim();
+      if (!number) return;
+      const relatedTasks = tasks.filter(function (task) { return String(task.contract || "") === number; });
+      const relatedNotes = notes.filter(function (note) {
+        return String(note.contract || "") === number || String(note.contact || "").includes(number);
+      });
+      const body = document.getElementById("contractModalBody");
+      const taskHtml = relatedTasks.length ? relatedTasks.map(function (task) {
+        return '<div class="note"><strong>' + escapeHtml(task.title || "Tarefa") +
+          '</strong><div>Prazo: ' + escapeHtml(formatDate(task.due || "")) +
+          ' • Status: ' + escapeHtml(task.status || "—") +
+          ' • Responsável: ' + escapeHtml(task.owner || "—") + '</div></div>';
+      }).join("") : '<p>Nenhuma tarefa vinculada encontrada.</p>';
+      const noteHtml = relatedNotes.length ? relatedNotes.map(function (note) {
+        return '<div class="note"><strong>Anotação</strong><div>' + escapeHtml(note.text || "") + '</div></div>';
+      }).join("") : '<p>Não há anotações vinculadas.</p>';
+      body.innerHTML = '<p><strong>Número do contrato:</strong> ' + escapeHtml(number) +
+        '</p><h3>Tarefas relacionadas</h3>' + taskHtml + '<h3>Anotações</h3>' + noteHtml +
+        '<p style="color:#5f6a7d;font-size:11px">Resumo demonstrativo montado com os registros disponíveis neste Salesforce.</p>';
+      document.getElementById("contractModalTitle").textContent = "Contrato " + number;
+      document.getElementById("contractModal").classList.add("open");
+    }
+    function closeContractDetails() { document.getElementById("contractModal").classList.remove("open"); }
+    document.getElementById("closeContractModal").addEventListener("click", closeContractDetails);
+    document.getElementById("doneContractModal").addEventListener("click", closeContractDetails);
+    document.getElementById("contractModal").addEventListener("click", function (event) {
+      if (event.target.id === "contractModal") closeContractDetails();
+    });
     window.addEventListener("message", function (event) {
       if (!event.data) return;
+      if (event.data.type === "yoda-open-contract") openContractDetails(event.data.contract);
       if (event.data.type === "yoda-minimize") {
         yodaFrame.hidden = true;
         yodaLauncher.hidden = false;
@@ -752,7 +781,6 @@ function showTaskDetails(task) {
             stageFilter.appendChild(option);
           }
         });
-        renderNotes();
         renderTasks();
         openTaskFromUrl();
         syncAssistant();
@@ -760,7 +788,10 @@ function showTaskDetails(task) {
       .catch(function (error) {
         // A página também pode ser aberta localmente, sem os endpoints da Vercel.
         tasks = mockApiData.tasks;
-        notes = mockApiData.notes;
+        notes = mockApiData.notes.map(function (note) {
+          const match = String(note.contact || "").match(/(\\d+)/);
+          return Object.assign({}, note, { contract: match ? match[1] : "" });
+        });
         Array.from(new Set(tasks.map(function (task) { return task.stage; }))).forEach(function (stage) {
           if (!Array.from(stageFilter.options).some(function (option) { return option.value === stage; })) {
             const option = document.createElement("option");
