@@ -842,5 +842,93 @@ function showTaskDetails(task) {
   <button id="enableYodaPush" class="yoda-push-enable" type="button">🔔 Ativar alertas do YODA</button>
   <div id="yodaPushStatus" class="yoda-push-status" role="status" hidden></div>
 
+  <script>
+    (function () {
+      const enableButton = document.getElementById("enableYodaPush");
+      const statusBox = document.getElementById("yodaPushStatus");
+      function showPushStatus(message) {
+        statusBox.textContent = message;
+        statusBox.hidden = false;
+        window.setTimeout(function () { statusBox.hidden = true; }, 6500);
+      }
+      function urlBase64ToUint8Array(value) {
+        const padding = "=".repeat((4 - value.length % 4) % 4);
+        const raw = atob((value + padding).replace(/-/g, "+").replace(/_/g, "/"));
+        return Uint8Array.from(Array.from(raw).map(function (char) { return char.charCodeAt(0); }));
+      }
+      async function activateYodaPush() {
+        if (!("serviceWorker" in navigator) || !("PushManager" in window) || !window.isSecureContext) {
+          showPushStatus("Este navegador precisa oferecer suporte a notificações Push e HTTPS.");
+          return;
+        }
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          showPushStatus("Permissão de notificação não concedida no navegador.");
+          return;
+        }
+        const registration = await navigator.serviceWorker.register("/service-worker.js");
+        const config = await apiRequest("/api/push_config");
+        let subscription = await registration.pushManager.getSubscription();
+        if (!subscription) {
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(config.public_key)
+          });
+        }
+        await apiRequest("/api/push_subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subscription: subscription.toJSON() })
+        });
+        enableButton.textContent = "✓ Alertas do YODA ativados";
+        showPushStatus("Notificações ativadas neste navegador.");
+      }
+      enableButton.addEventListener("click", function () {
+        activateYodaPush().catch(function (error) {
+          showPushStatus("Não foi possível ativar: " + error.message);
+        });
+      });
+      if ("serviceWorker" in navigator && window.isSecureContext) {
+        navigator.serviceWorker.register("/service-worker.js").catch(function () {});
+      }
+
+      async function scheduleTaskReminder(task) {
+        if (!task || !task.id) return;
+        const cancel = !task.due || !task.call_time || /conclu/i.test(String(task.status || ""));
+        let start = null;
+        if (!cancel) {
+          const dateParts = String(task.due).split("-").map(Number);
+          const timeParts = String(task.call_time).slice(0, 5).split(":").map(Number);
+          if (dateParts.length !== 3 || timeParts.length !== 2 ||
+              dateParts.some(Number.isNaN) || timeParts.some(Number.isNaN)) return;
+          start = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], timeParts[0], timeParts[1]);
+          if (Number.isNaN(start.getTime())) return;
+        }
+        try {
+          await apiRequest("/api/reminders", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              task_id: String(task.id),
+              cancel: cancel || start.getTime() <= Date.now(),
+              title: task.title || "Compromisso",
+              contract: task.contract || "",
+              starts_at: start && start.getTime() > Date.now() ? start.toISOString() : "",
+              open_url: task.url || ("/?task=" + encodeURIComponent(task.id))
+            })
+          });
+        } catch (error) {
+          console.warn("YODA: não foi possível registrar o lembrete.", error);
+        }
+      }
+      window.addEventListener("yoda-task-reminder", function (event) {
+        scheduleTaskReminder(event.detail);
+      });
+      window.addEventListener("yoda-schedule-existing-reminders", function () {
+        (window.salesforceTasks || []).forEach(scheduleTaskReminder);
+      });
+    })();
+  </script>
+
 </body>
 </html>
