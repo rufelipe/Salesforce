@@ -28,10 +28,17 @@ def tasks():
 
 
 def notes():
-    return [
-        {"contact": item.get("contato", ""), "text": item.get("texto", "")}
-        for item in adapter.buscar_anotacoes()
-    ]
+    import re
+    result = []
+    for item in adapter.buscar_anotacoes():
+        contact = item.get("contato", "")
+        match = re.search(r"(\\d+)", str(contact))
+        contract = match.group(1) if match else ""
+        result.append({
+            "contact": contact, "text": item.get("texto", ""),
+            "contract": contract, "url": "/?contract=" + contract if contract else ""
+        })
+    return result
 
 
 class APIHandler(BaseHTTPRequestHandler):
