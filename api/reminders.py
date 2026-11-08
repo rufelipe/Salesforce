@@ -1,3 +1,4 @@
+from http.server import BaseHTTPRequestHandler
 from datetime import datetime, timedelta
 from urllib.parse import parse_qs
 from zoneinfo import ZoneInfo
@@ -5,7 +6,7 @@ from zoneinfo import ZoneInfo
 from api._push import json_response, read_json, supabase_request
 
 
-class handler:
+class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         json_response(self, 204, {})
 
