@@ -330,6 +330,11 @@
       height: min(640px, calc(100vh - 70px));
       overflow: visible;
     }
+    .yoda-widget.minimized {
+      width: 68px;
+      height: 68px;
+    }
+    .yoda-widget.minimized #yodaAssistant { display: none !important; }
     #yodaAssistant {
       display: block;
       width: 100%;
@@ -462,6 +467,7 @@
           <div class="form-field full"><label for="titleInput">Assunto</label><input id="titleInput" required></div>
           <div class="form-field"><label for="contractInput">Contrato</label><input id="contractInput" required></div>
           <div class="form-field"><label for="dueInput">Prazo</label><input id="dueInput" type="date" required></div>
+          <div class="form-field"><label for="callTimeInput">Horário da ligação</label><input id="callTimeInput" type="time"></div>
           <div class="form-field"><label for="statusInput">Status</label><select id="statusInput"><option>em andamento</option><option>não iniciado</option><option>concluída</option></select></div>
           <div class="form-field"><label for="stageInput">Etapa</label><input id="stageInput" value="Retenção"></div>
           <div class="form-field"><label for="priorityInput">Prioridade</label><select id="priorityInput"><option>Normal</option><option>Alta</option><option>Baixa</option></select></div>
@@ -602,6 +608,7 @@
       document.getElementById("titleInput").value = task.title || "";
       document.getElementById("contractInput").value = task.contract || "";
       document.getElementById("dueInput").value = task.due || "";
+      document.getElementById("callTimeInput").value = task.call_time || "";
       document.getElementById("statusInput").value = task.status || "em andamento";
       document.getElementById("stageInput").value = task.stage || "Retenção";
       document.getElementById("priorityInput").value = task.priority || "Normal";
@@ -622,6 +629,7 @@ function showTaskDetails(task) {
       document.getElementById("titleInput").value = task.title || "";
       document.getElementById("contractInput").value = task.contract || "";
       document.getElementById("dueInput").value = task.due || "";
+      document.getElementById("callTimeInput").value = task.call_time || "";
       document.getElementById("statusInput").value = task.status || "em andamento";
       document.getElementById("stageInput").value = task.stage || "";
       document.getElementById("priorityInput").value = task.priority || "Normal";
@@ -647,6 +655,7 @@ function showTaskDetails(task) {
     const yodaLauncher = document.getElementById("yodaLauncher");
     const yodaFrame = document.getElementById("yodaAssistant");
     yodaLauncher.addEventListener("click", function () {
+      yodaWidget.classList.remove("minimized");
       yodaLauncher.hidden = true;
       yodaFrame.hidden = false;
       yodaFrame.contentWindow.postMessage({ type: "yoda-parent-expand" }, "*");
@@ -684,9 +693,11 @@ function showTaskDetails(task) {
       if (!event.data) return;
       if (event.data.type === "yoda-open-contract") openContractDetails(event.data.contract);
       if (event.data.type === "yoda-minimize") {
+        yodaWidget.classList.add("minimized");
         yodaFrame.hidden = true;
         yodaLauncher.hidden = false;
       } else if (event.data.type === "yoda-expand") {
+        yodaWidget.classList.remove("minimized");
         yodaFrame.hidden = false;
         yodaLauncher.hidden = true;
       }
@@ -732,6 +743,7 @@ function showTaskDetails(task) {
         title: document.getElementById("titleInput").value.trim(),
         contract: document.getElementById("contractInput").value.trim(),
         due: document.getElementById("dueInput").value,
+        call_time: document.getElementById("callTimeInput").value,
         status: document.getElementById("statusInput").value,
         stage: document.getElementById("stageInput").value.trim() || "Sem etapa",
         priority: document.getElementById("priorityInput").value,
