@@ -320,6 +320,57 @@
       }
     }
 
+    /* YODA: janela flutuante e launcher somente com o avatar ao minimizar */
+    .yoda-widget {
+      position: fixed;
+      z-index: 30;
+      right: 18px;
+      bottom: 48px;
+      width: min(410px, calc(100vw - 28px));
+      height: min(640px, calc(100vh - 70px));
+      overflow: visible;
+    }
+    #yodaAssistant {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      border: 0;
+      border-radius: 14px;
+      background: transparent;
+      box-shadow: 0 8px 30px rgba(0,0,0,.22);
+    }
+    .yoda-launcher {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 68px;
+      height: 68px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      background: #6557d9;
+      box-shadow: 0 8px 24px rgba(32,40,58,.24);
+      cursor: pointer;
+    }
+    .yoda-launcher img {
+      width: 48px;
+      height: 48px;
+      object-fit: contain;
+    }
+    .yoda-launcher:hover { transform: translateY(-2px) scale(1.04); }
+    .yoda-launcher[hidden] { display: none !important; }
+    @media (max-width: 700px) {
+      .yoda-widget {
+        right: 10px;
+        bottom: 44px;
+        width: min(390px, calc(100vw - 20px));
+        height: min(620px, calc(100vh - 58px));
+      }
+    }
+
     @media (max-width: 700px) {
       .topbar { gap: 8px; }
       .brand { font-size: 0; }
@@ -391,21 +442,23 @@
         <div class="panel-header"><h2>Anotações recentes</h2></div>
         <div class="note-list" id="notesList"></div>
       </article>
-      <article class="panel">
-        <div class="panel-header"><h2>Assistente YODA</h2></div>
-        <div class="assistant-box">
-          <p>Assistente externo conectado por HTTP/API. Ele consulta este Salesforce demonstrativo e mantém a inteligência hospedada separadamente no Render.</p>
-          <iframe
-            id="yodaAssistant"
-            src="https://assistente-virtual-api.onrender.com/?embed=1"
-            title="Assistente YODA"
-            loading="lazy"
-            allow="microphone">
-          </iframe>
-        </div>
-      </article>
+
     </section>
   </main>
+
+  <aside id="yodaWidget" class="yoda-widget" aria-label="Assistente YODA">
+    <iframe
+      id="yodaAssistant"
+      src="https://assistente-virtual-api.onrender.com/?embed=1"
+      title="Assistente YODA"
+      loading="lazy"
+      allow="microphone">
+    </iframe>
+    <button id="yodaLauncher" class="yoda-launcher" type="button" aria-label="Abrir YODA" hidden>
+      <img src="https://assistente-virtual-api.onrender.com/assets/baby-yoda-head.png" alt="YODA">
+    </button>
+  </aside>
+
   <div class="utility-bar"><span>◉　Omni-Channel</span><span>☷　To Do List</span></div>
 
   <div class="modal-backdrop" id="taskModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
@@ -589,6 +642,25 @@ function showTaskDetails(task) {
       option.value = stage;
       option.textContent = stage;
       stageFilter.appendChild(option);
+    });
+
+    const yodaWidget = document.getElementById("yodaWidget");
+    const yodaLauncher = document.getElementById("yodaLauncher");
+    const yodaFrame = document.getElementById("yodaAssistant");
+    yodaLauncher.addEventListener("click", function () {
+      yodaLauncher.hidden = true;
+      yodaFrame.hidden = false;
+      yodaFrame.contentWindow.postMessage({ type: "yoda-parent-expand" }, "*");
+    });
+    window.addEventListener("message", function (event) {
+      if (!event.data) return;
+      if (event.data.type === "yoda-minimize") {
+        yodaFrame.hidden = true;
+        yodaLauncher.hidden = false;
+      } else if (event.data.type === "yoda-expand") {
+        yodaFrame.hidden = false;
+        yodaLauncher.hidden = true;
+      }
     });
 
     taskSearch.addEventListener("input", renderTasks);
