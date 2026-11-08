@@ -351,7 +351,7 @@
   <div class="utility-bar"><span>◉　Omni-Channel</span><span>☷　To Do List</span></div>
 
   <div class="modal-backdrop" id="taskModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <form class="modal" id="taskForm">
+    <form class="modal" id="taskForm"><input type="hidden" id="editingTaskId">
       <div class="modal-head"><h2 id="modalTitle">Nova tarefa</h2><button type="button" class="close" id="closeModal" aria-label="Fechar">×</button></div>
       <div class="modal-body">
         <div class="form-grid">
@@ -410,6 +410,12 @@
     }
 
 
+    function syncAssistant() {
+      const frame = document.getElementById("yodaAssistant");
+      if (!frame || !frame.contentWindow) return;
+      frame.contentWindow.postMessage({ type: "salesforce-tasks", tasks: tasks }, "*");
+    }
+
     const rows = document.getElementById("taskRows");
     const taskSearch = document.getElementById("taskSearch");
     const statusFilter = document.getElementById("statusFilter");
@@ -443,7 +449,7 @@
           const statusClass = task.status === "em andamento" ? "badge-progress" : task.status === "concluída" ? "badge-done" : "badge-not-started";
           const priorityClass = task.priority === "Alta" ? "priority-high" : task.priority === "Baixa" ? "priority-low" : "priority-normal";
           const tr = document.createElement("tr");
-          tr.innerHTML = '<td class="task-title" title="' + escapeHtml(task.observation) + '">' + escapeHtml(task.title) + '</td>' +
+          tr.innerHTML = '<td><div class="task-title" title="' + escapeHtml(task.observation) + '">' + escapeHtml(task.title) + '</div><button type="button" class="edit-task">Editar</button></td>' +
             '<td>' + escapeHtml(task.stage) + '</td>' +
             '<td>' + escapeHtml(task.contract) + '</td>' +
             '<td>' + escapeHtml(formatDate(task.due)) + '</td>' +
@@ -454,6 +460,7 @@
             '<td class="observation-cell"><span class="observation-text">' + escapeHtml(task.observation) + '</span>' +
             '<span class="observation-actions"><button type="button" class="edit-observation">Editar</button></span></td>';
           tr.querySelector(".task-title").addEventListener("click", function () { showTaskDetails(task); });
+          tr.querySelector(".edit-task").addEventListener("click", function () { openEditTask(task); });
           tr.querySelector(".edit-observation").addEventListener("click", function () {
             const cell = tr.querySelector(".observation-cell");
             const observationAtual = task.observation || "";
@@ -479,7 +486,20 @@
       document.getElementById("highCount").textContent = tasks.filter(function (t) { return t.priority === "Alta"; }).length;
     }
 
-    function showTaskDetails(task) {
+    function openEditTask(task) {
+      document.getElementById("modalTitle").textContent = "Editar tarefa #" + (task.id || "");
+      document.getElementById("editingTaskId").value = task.id || "";
+      document.getElementById("titleInput").value = task.title || "";
+      document.getElementById("contractInput").value = task.contract || "";
+      document.getElementById("dueInput").value = task.due || "";
+      document.getElementById("statusInput").value = task.status || "em andamento";
+      document.getElementById("stageInput").value = task.stage || "Retenção";
+      document.getElementById("priorityInput").value = task.priority || "Normal";
+      document.getElementById("observationInput").value = task.observation || "";
+      modal.classList.add("open");
+    }
+
+function showTaskDetails(task) {
       document.getElementById("assistantAnswer").textContent =
         task.title + "\nContrato: " + task.contract + "\nStatus: " + task.status +
         " | Etapa: " + task.stage + "\nPrazo: " + formatDate(task.due) +
@@ -518,6 +538,9 @@
     });
 
     taskSearch.addEventListener("input", renderTasks);
+    window.addEventListener("message", function (event) {
+      if (event.data && event.data.type === "yoda-ready") syncAssistant();
+    });
     statusFilter.addEventListener("change", renderTasks);
     stageFilter.addEventListener("change", renderTasks);
     document.getElementById("globalSearch").addEventListener("input", function (event) {
@@ -553,14 +576,27 @@
 
     const modal = document.getElementById("taskModal");
     function closeModal() { modal.classList.remove("open"); }
-    document.getElementById("newTaskButton").addEventListener("click", function () { modal.classList.add("open"); document.getElementById("titleInput").focus(); });
+    document.getElementById("newTaskButton").addEventListener("click", function () {
+      document.getElementById("modalTitle").textContent = "Nova tarefa";
+      document.getElementById("editingTaskId").value = "";
+      document.getElementById("taskForm").reset();
+      document.getElementById("stageInput").value = "Retenção";
+      modal.classList.add("open"); document.getElementById("titleInput").focus();
+    });
     document.getElementById("closeModal").addEventListener("click", closeModal);
     document.getElementById("cancelModal").addEventListener("click", closeModal);
     modal.addEventListener("click", function (event) { if (event.target === modal) closeModal(); });
     document.addEventListener("keydown", function (event) { if (event.key === "Escape") closeModal(); });
+    window.addEventListener("storage", function () { 
+      const saved = localStorage.getItem("salesforce_demo_tasks");
+      if (saved) { try { tasks = JSON.parse(saved); renderTasks(); syncAssistant(); } catch (e) {} }
+    });
     document.getElementById("taskForm").addEventListener("submit", function (event) {
       event.preventDefault();
-      const novaTarefa = {
+      const editingId = document.getElementById("editingTaskId").value;
+      const tarefa = {
+        id: editingId || String(Date.now()),
+        url: "/?task=" + encodeURIComponent(editingId || ""),
         title: document.getElementById("titleInput").value.trim(),
         contract: document.getElementById("contractInput").value.trim(),
         due: document.getElementById("dueInput").value,
@@ -570,26 +606,34 @@
         observation: document.getElementById("observationInput").value.trim(),
         response: "Nenhum", related: ""
       };
-      apiRequest("/api/tasks", { method: "POST", body: JSON.stringify(novaTarefa) })
-        .then(function (tarefaSalva) {
-          tasks.unshift(tarefaSalva);
-          if (!Array.from(stageFilter.options).some(function (option) { return option.value === tarefaSalva.stage; })) {
-            const option = document.createElement("option"); option.value = tarefaSalva.stage; option.textContent = tarefaSalva.stage; stageFilter.appendChild(option);
-          }
-          document.getElementById("taskForm").reset();
-          document.getElementById("stageInput").value = "Retenção";
-          closeModal();
-          renderTasks();
-        })
-        .catch(function (error) {
-          document.getElementById("assistantAnswer").textContent = "Falha ao salvar pela API simulada: " + error.message;
-        });
+      if (!editingId) tarefa.url = "/?task=" + encodeURIComponent(tarefa.id);
+      if (editingId) {
+        const index = tasks.findIndex(function (item) { return String(item.id) === String(editingId); });
+        if (index >= 0) tasks[index] = Object.assign({}, tasks[index], tarefa);
+      } else {
+        tasks.unshift(tarefa);
+      }
+      localStorage.setItem("salesforce_demo_tasks", JSON.stringify(tasks));
+      document.getElementById("taskForm").reset();
+      document.getElementById("stageInput").value = "Retenção";
+      document.getElementById("editingTaskId").value = "";
+      document.getElementById("modalTitle").textContent = "Nova tarefa";
+      closeModal();
+      renderTasks();
+      syncAssistant();
+;
     });
 
         Promise.all([apiRequest("/api/tasks"), apiRequest("/api/notes")])
       .then(function (responses) {
         tasks = responses[0];
         notes = responses[1];
+        const savedTasks = localStorage.getItem("salesforce_demo_tasks");
+        if (savedTasks) {
+          try { tasks = JSON.parse(savedTasks); } catch (e) { localStorage.removeItem("salesforce_demo_tasks"); }
+        } else {
+          localStorage.setItem("salesforce_demo_tasks", JSON.stringify(tasks));
+        }
         Array.from(new Set(tasks.map(function (task) { return task.stage; }))).forEach(function (stage) {
           if (!Array.from(stageFilter.options).some(function (option) { return option.value === stage; })) {
             const option = document.createElement("option");
@@ -601,6 +645,7 @@
         renderNotes();
         renderTasks();
         openTaskFromUrl();
+        syncAssistant();
       })
       .catch(function (error) {
         // A página também pode ser aberta localmente, sem os endpoints da Vercel.
@@ -617,6 +662,8 @@
         renderNotes();
         renderTasks();
         openTaskFromUrl();
+        localStorage.setItem("salesforce_demo_tasks", JSON.stringify(tasks));
+        syncAssistant();
         document.getElementById("tableSummary").textContent +=
           " • exibindo dados de demonstração (API indisponível: " + error.message + ")";
       });
