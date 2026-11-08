@@ -387,6 +387,20 @@
       .filters input { flex: 1; width: 130px; }
       .panel-header { align-items: flex-end; }
     }
+  
+    .yoda-push-enable {
+      position: fixed; z-index: 29; left: 14px; bottom: 48px;
+      border: 1px solid #0176d3; border-radius: 22px; padding: 10px 15px;
+      background: #fff; color: #014486; box-shadow: 0 3px 14px rgba(0,0,0,.15);
+      font-weight: 700; cursor: pointer;
+    }
+    .yoda-push-enable[hidden] { display: none; }
+    .yoda-push-status {
+      position: fixed; z-index: 50; left: 14px; bottom: 94px; max-width: 320px;
+      padding: 10px 13px; border-radius: 8px; background: #032d60; color: #fff;
+      box-shadow: 0 3px 14px rgba(0,0,0,.2); font-size: 12px;
+    }
+
   </style>
 </head>
 <body>
@@ -550,6 +564,7 @@
     }
 
     function renderTasks() {
+      window.salesforceTasks = tasks;
       const query = taskSearch.value.trim().toLocaleLowerCase("pt-BR");
       const status = statusFilter.value;
       const stage = stageFilter.value;
@@ -758,6 +773,7 @@ function showTaskDetails(task) {
         tasks.unshift(tarefa);
       }
       localStorage.setItem("salesforce_demo_tasks", JSON.stringify(tasks));
+      window.dispatchEvent(new CustomEvent("yoda-task-reminder", { detail: tarefa }));
       document.getElementById("taskForm").reset();
       document.getElementById("stageInput").value = "Retenção";
       document.getElementById("editingTaskId").value = "";
@@ -794,6 +810,7 @@ function showTaskDetails(task) {
           }
         });
         renderTasks();
+        window.dispatchEvent(new Event("yoda-schedule-existing-reminders"));
         openTaskFromUrl();
         syncAssistant();
       })
@@ -821,5 +838,9 @@ function showTaskDetails(task) {
           " • exibindo dados de demonstração (API indisponível: " + error.message + ")";
       });
   </script>
+
+  <button id="enableYodaPush" class="yoda-push-enable" type="button">🔔 Ativar alertas do YODA</button>
+  <div id="yodaPushStatus" class="yoda-push-status" role="status" hidden></div>
+
 </body>
 </html>
