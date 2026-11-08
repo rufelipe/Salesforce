@@ -1,6 +1,6 @@
 # Alertas Push do YODA
 
-Esta implementação prepara notificações Web Push para compromissos com data e horário. O lembrete é programado para cinco minutos antes do horário informado no campo **Data** + **Horário da ligação** da tarefa.
+Esta implementação prepara notificações Web Push para compromissos com data e horário. O lembrete é programado para cinco minutos antes do horário informado no campo **Prazo** + **Horário do compromisso** da tarefa.
 
 ## 1. Banco de dados
 
