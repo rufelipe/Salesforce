@@ -220,7 +220,9 @@
     .breadcrumbs { margin: 0 0 2px; padding: 0 18px; font-size: 11px; }
     .heading { align-items: center; margin: 0; padding: 0 18px 8px; }
     h1 { display: inline-block; margin: 0; font-size: 23px; font-weight: 400; }
-    .subtitle, .stats, .lower-grid { display: none !important; }
+    .subtitle, .stats { display: none !important; }
+    .lower-grid { display: grid !important; }
+    @media (max-width: 800px) { .lower-grid { grid-template-columns: 1fr; } }
     .heading .button-primary { padding: 6px 13px; background: #fff; color: #0176d3; font-weight: 400; }
     .panel { border: 0; border-radius: 0; box-shadow: none; background: transparent; overflow: visible; }
     .panel-header { min-height: 42px; padding: 6px 10px; border: 0; align-items: center; }
@@ -500,11 +502,7 @@
     }
 
 function showTaskDetails(task) {
-      document.getElementById("assistantAnswer").textContent =
-        task.title + "\nContrato: " + task.contract + "\nStatus: " + task.status +
-        " | Etapa: " + task.stage + "\nPrazo: " + formatDate(task.due) +
-        "\nPrioridade: " + task.priority +
-        "\nObservação: " + task.observation;
+      openEditTask(task);
     }
 
     function openTaskFromUrl() {
@@ -548,30 +546,7 @@ function showTaskDetails(task) {
       renderTasks();
     });
 
-        document.getElementById("assistantForm").addEventListener("submit", function (event) {
-      event.preventDefault();
-      const question = document.getElementById("assistantQuestion").value.trim();
-      const answer = document.getElementById("assistantAnswer");
-      if (!question) { answer.textContent = "Digite um contrato, assunto ou termo para buscar."; return; }
-      answer.textContent = "Consultando a API...";
-      apiRequest("/api/assistant", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: question })
-      }).then(function (result) {
-        const lines = [result.answer];
-        result.tasks.forEach(function (task) {
-          lines.push(task.title + " | contrato " + task.contract + " | " + task.status +
-            " | prazo " + formatDate(task.due) + "\nObservação: " + task.observation);
-        });
-        result.notes.forEach(function (note) {
-          lines.push("Anotação — " + note.contact + ": " + note.text);
-        });
-        answer.textContent = lines.join("\n\n");
-      }).catch(function (error) {
-        answer.textContent = "Falha ao consultar a API: " + error.message;
-      });
-    });
+        /* O formulário antigo de consulta foi removido; a consulta agora é feita pelo YODA no iframe. */
 
 
     const modal = document.getElementById("taskModal");
@@ -630,7 +605,14 @@ function showTaskDetails(task) {
         notes = responses[1];
         const savedTasks = localStorage.getItem("salesforce_demo_tasks");
         if (savedTasks) {
-          try { tasks = JSON.parse(savedTasks); } catch (e) { localStorage.removeItem("salesforce_demo_tasks"); }
+          try {
+            const parsedTasks = JSON.parse(savedTasks);
+            if (Array.isArray(parsedTasks) && parsedTasks.length > 0) tasks = parsedTasks;
+            else localStorage.setItem("salesforce_demo_tasks", JSON.stringify(tasks));
+          } catch (e) {
+            localStorage.removeItem("salesforce_demo_tasks");
+            localStorage.setItem("salesforce_demo_tasks", JSON.stringify(tasks));
+          }
         } else {
           localStorage.setItem("salesforce_demo_tasks", JSON.stringify(tasks));
         }
