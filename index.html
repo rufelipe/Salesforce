@@ -487,6 +487,22 @@
         "\nObservação: " + task.observation;
     }
 
+    function openTaskFromUrl() {
+      const taskId = new URLSearchParams(window.location.search).get("task");
+      if (!taskId) return;
+      const task = tasks.find(function (item) { return String(item.id) === String(taskId); });
+      if (!task) return;
+      document.getElementById("modalTitle").textContent = "Tarefa #" + task.id;
+      document.getElementById("titleInput").value = task.title || "";
+      document.getElementById("contractInput").value = task.contract || "";
+      document.getElementById("dueInput").value = task.due || "";
+      document.getElementById("statusInput").value = task.status || "em andamento";
+      document.getElementById("stageInput").value = task.stage || "";
+      document.getElementById("priorityInput").value = task.priority || "Normal";
+      document.getElementById("observationInput").value = task.observation || "";
+      document.getElementById("taskModal").classList.add("open");
+    }
+
     function renderNotes() {
       const list = document.getElementById("notesList");
       list.innerHTML = notes.map(function (note) {
@@ -584,6 +600,7 @@
         });
         renderNotes();
         renderTasks();
+        openTaskFromUrl();
       })
       .catch(function (error) {
         // A página também pode ser aberta localmente, sem os endpoints da Vercel.
@@ -599,6 +616,7 @@
         });
         renderNotes();
         renderTasks();
+        openTaskFromUrl();
         document.getElementById("tableSummary").textContent +=
           " • exibindo dados de demonstração (API indisponível: " + error.message + ")";
       });
