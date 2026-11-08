@@ -1,9 +1,10 @@
+from http.server import BaseHTTPRequestHandler
 import os
 
 from api._push import json_response
 
 
-class handler:
+class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         key = os.environ.get("VAPID_PUBLIC_KEY", "").strip()
         if not key:
