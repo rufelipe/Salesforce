@@ -1,3 +1,4 @@
+from http.server import BaseHTTPRequestHandler
 import json
 import os
 from datetime import datetime, timezone
@@ -8,7 +9,7 @@ from pywebpush import WebPushException, webpush
 from api._push import env, json_response, supabase_request
 
 
-class handler:
+class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self._run()
 
